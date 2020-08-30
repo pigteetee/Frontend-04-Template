@@ -1,0 +1,183 @@
+<style>
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    margin: 0;
+  }
+
+  #board {
+    width: 500px;
+    height: 500px;
+    max-width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    margin: 0 auto;
+  }
+
+  .square {
+    background: pink;
+    border: 2px solid white;
+    color: white;
+    font-size: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 16px;
+    -moz-user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .square:hover {
+    cursor: pointer;
+    transform: scale(1.03);
+    transition-timing-function: ease-in-out;
+    transition-duration: 160ms;
+  }
+</style>
+<body>
+  <div id="board"></div>
+</body>
+<script>
+  function Board(player1, player2) {
+    this.map = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+    this.side = 1;
+    this.winner = undefined;
+    this.players = {
+      1: player1.setSide(1),
+      2: player2.setSide(2),
+    };
+  }
+
+  Board.checkWinner = function (map) {
+    let winner;
+    [
+      [0, 1, 2],
+      [3, 4, 5],
+      [6, 7, 8],
+      [0, 3, 6],
+      [1, 4, 7],
+      [2, 5, 8],
+      [0, 4, 8],
+      [2, 4, 6],
+    ].map((line) => {
+      if (map[line[0]] !== 0) {
+        if (map[line[0]] === map[line[1]] && map[[line[1]]] === map[line[2]]) {
+          winner = map[line[0]];
+        }
+      }
+    });
+    return winner;
+  };
+
+  Board.prototype.changeSide = function () {
+    this.side = this.side === 1 ? 2 : 1;
+    if (this.players[this.side] instanceof Bot) {
+      const i = this.players[this.side].getIndex(this.map);
+      this.updateMap(i);
+    }
+  };
+
+  Board.prototype.render = function () {
+    const container = document.getElementById("board");
+    container.innerText = "";
+    for (let i = 0; i < 9; i++) {
+      const square = document.createElement("div");
+      square.setAttribute("class", "square");
+
+      square.addEventListener("click", () => this.updateMap(i));
+
+      container.appendChild(square);
+
+      if (this.map[i] !== 0) {
+        square.appendChild(this.players[this.map[i]].getDom());
+      }
+    }
+  };
+
+  Board.prototype.updateMap = function (i) {
+    if (this.map[i] !== 0 || this.winner) return;
+    this.map[i] = this.side;
+    this.render();
+    const winner = Board.checkWinner(this.map);
+    if (winner) {
+      setTimeout(() => {
+        window.alert(
+          `Congratulations 🎉🎉🎉, ${winner === 1 ? "O" : "X"} win the game!!!`
+        );
+      }, 60);
+
+      this.winner = winner;
+      return;
+    }
+    this.changeSide();
+  };
+
+  function Player() {}
+
+  Player.prototype.setSide = function (side) {
+    this.side = side;
+    return this;
+  };
+
+  Player.prototype.getDom = function () {
+    this.dom = document.createElement("div");
+    this.dom.innerText = this.side === 1 ? "O" : "X";
+
+    return this.dom;
+  };
+
+  function Bot() {
+    Player.call(this);
+  }
+
+  Bot.prototype = Object.create(Player.prototype);
+
+  Bot.prototype.getIndex = function (map) {
+    return this.simulate(map, this.side).index;
+  };
+
+  Bot.prototype.simulate = function (map, side) {
+    const bestChoice = {
+      winner: undefined,
+      index: undefined,
+    };
+
+    for (let i = 0; i < 9; i++) {
+      const tempMap = [...map];
+
+      if (tempMap[i] === 0) {
+        tempMap[i] = side;
+        if (!bestChoice.winner) {
+          bestChoice.index = i;
+        }
+
+        const winner = Board.checkWinner(tempMap);
+
+        if (winner === side) {
+          bestChoice.winner = side;
+          bestChoice.index = i;
+        } else {
+          const simulateResult = this.simulate(tempMap, side === 1 ? 2 : 1);
+          if (simulateResult.winner && simulateResult.winner !== side) {
+            if (bestChoice.winner !== this.side) {
+              bestChoice.winner = simulateResult.winner;
+              bestChoice.index = simulateResult.index;
+            }
+          }
+        }
+      }
+    }
+
+    return bestChoice;
+  };
+
+  const board = new Board(new Player(), new Bot());
+  board.render();
+</script>
